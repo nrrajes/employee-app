@@ -1,6 +1,7 @@
 package com.nr.devops.employeeapp.service;
 
 import com.nr.devops.employeeapp.model.Employee;
+import com.nr.devops.employeeapp.repository.EmployeeRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -8,12 +9,13 @@ import java.util.List;
 @Service
 public class EmployeeService {
 
-    public List<Employee> getEmployees() {
+    private final EmployeeRepository employeeRepository;
 
-        return List.of(
-                new Employee(1, "Rajesh", "DevOps"),
-                new Employee(2, "John", "Cloud"),
-                new Employee(3, "Alice", "Linux")
-        );
+    public EmployeeService(EmployeeRepository employeeRepository) {
+        this.employeeRepository = employeeRepository;
+    }
+
+    public List<Employee> getEmployees() {
+        return employeeRepository.findAll();
     }
 }

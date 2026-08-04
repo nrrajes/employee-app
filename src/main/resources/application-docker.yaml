@@ -1,12 +1,10 @@
 spring:
-  application:
-    name: employee-app
-
   datasource:
-    url: jdbc:mysql://localhost:3306/devopslab
+    url: jdbc:mysql://mysql-server:3306/devopslab
     username: root
     password: Root@123
 
   jpa:
     hibernate:
       ddl-auto: update
+    show-sql: true
