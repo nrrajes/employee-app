@@ -4,27 +4,27 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
                 git branch: 'main',
-                    credentialsId: 'github-ssh',
                     url: 'git@github.com:nrrajes/employee-app.git'
             }
         }
 
-        stage('Build') {
+        stage('Build Application') {
             steps {
+                sh 'chmod +x mvnw'
                 sh './mvnw clean package'
             }
         }
 
-        stage('Docker Build') {
+        stage('Build Docker Image') {
             steps {
                 sh 'docker build -t employee-app:${BUILD_NUMBER} .'
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy Container') {
             steps {
                 sh '''
                 docker stop employee-app || true
@@ -34,6 +34,7 @@ pipeline {
                 --name employee-app \
                 --network employee-network \
                 -p 8084:8080 \
+                -e SPRING_PROFILES_ACTIVE=docker \
                 employee-app:${BUILD_NUMBER}
                 '''
             }
