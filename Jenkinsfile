@@ -18,6 +18,20 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                    /opt/sonar-scanner/bin/sonar-scanner \
+                      -Dsonar.projectKey=employee-app \
+                      -Dsonar.projectName=Employee-App \
+                      -Dsonar.sources=src/main \
+                      -Dsonar.java.binaries=target/classes
+                    '''
+                }
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 sh 'docker build -t employee-app:${BUILD_NUMBER} .'
@@ -31,11 +45,11 @@ pipeline {
                 docker rm employee-app || true
 
                 docker run -d \
-                --name employee-app \
-                --network employee-network \
-                -p 8084:8080 \
-                -e SPRING_PROFILES_ACTIVE=docker \
-                employee-app:${BUILD_NUMBER}
+                  --name employee-app \
+                  --network employee-network \
+                  -p 8084:8080 \
+                  -e SPRING_PROFILES_ACTIVE=docker \
+                  employee-app:${BUILD_NUMBER}
                 '''
             }
         }
