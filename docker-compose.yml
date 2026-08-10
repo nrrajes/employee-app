@@ -13,13 +13,14 @@ services:
     networks:
       - employee-network
 
+
   employee-app:
-    image: employee-app:9
+    image: ${EMPLOYEE_APP_IMAGE:-employee-app:latest}
     container_name: employee-app
     depends_on:
       - mysql
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/devopslab
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       SPRING_PROFILES_ACTIVE: docker
@@ -33,4 +34,5 @@ volumes:
 
 networks:
   employee-network:
+    name: employee-network
     driver: bridge
