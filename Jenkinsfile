@@ -32,14 +32,13 @@ pipeline {
             }
         }
 
-
-	stage('Quality Gate') {
-	   steps {
-		timeout(time: 5, unit: 'MINUTES') {
-			waitForQualityGate abortPipeline: true
-			}
-		}
-	}
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
 
         stage('Build Docker Image') {
             steps {
@@ -47,19 +46,24 @@ pipeline {
             }
         }
 
-        stage('Deploy Container') {
+        stage('Deploy with Docker Compose') {
             steps {
-                sh '''
-                docker stop employee-app || true
-                docker rm employee-app || true
+                withCredentials([
+                    string(
+                        credentialsId: 'mysql-root-password',
+                        variable: 'MYSQL_ROOT_PASSWORD'
+                    )
+                ]) {
+                    sh '''
+                        export MYSQL_DATABASE=devopslab
+                        export EMPLOYEE_APP_IMAGE=employee-app:${BUILD_NUMBER}
 
-                docker run -d \
-                  --name employee-app \
-                  --network employee-network \
-                  -p 8084:8080 \
-                  -e SPRING_PROFILES_ACTIVE=docker \
-                  employee-app:${BUILD_NUMBER}
-                '''
+                        docker compose down || true
+                        docker compose up -d
+
+                        docker compose ps
+                    '''
+                }
             }
         }
     }
