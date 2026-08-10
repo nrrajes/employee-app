@@ -5,7 +5,7 @@ services:
     container_name: employee-mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-devopslab}
     ports:
       - "3306:3306"
     volumes:
@@ -13,14 +13,13 @@ services:
     networks:
       - employee-network
 
-
   employee-app:
     image: ${EMPLOYEE_APP_IMAGE:-employee-app:latest}
     container_name: employee-app
     depends_on:
       - mysql
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-devopslab}
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       SPRING_PROFILES_ACTIVE: docker
