@@ -55,6 +55,7 @@ pipeline {
                     )
                 ]) {
                     sh '''
+                        export COMPOSE_PROJECT_NAME=employee-app
                         export MYSQL_DATABASE=devopslab
                         export EMPLOYEE_APP_IMAGE=employee-app:${BUILD_NUMBER}
 
@@ -68,3 +69,4 @@ pipeline {
         }
     }
 }
+
