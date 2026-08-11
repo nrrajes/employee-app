@@ -28,7 +28,7 @@ pipeline {
                           -Dsonar.projectKey=employee-app \
                           -Dsonar.projectName=Employee-App \
                           -Dsonar.sources=src/main \
-                          -Dsonar.java.binaries=target/classes
+                          -Dsonar.java.binaries=target/classes \
 			  -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
                     '''
                 }
