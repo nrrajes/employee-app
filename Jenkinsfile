@@ -67,6 +67,24 @@ pipeline {
                 }
             }
         }
+
+        stage('Smoke Test') {
+            steps {
+                sh '''
+                    echo "Waiting for application to start..."
+                    sleep 10
+
+                    echo "Testing application root endpoint..."
+                    curl -f http://localhost:8084/
+
+                    echo ""
+                    echo "Testing employees API..."
+                    curl -f http://localhost:8084/employees
+
+                    echo ""
+                    echo "Smoke tests passed successfully!"
+                '''
+            }
+        }
     }
 }
-
