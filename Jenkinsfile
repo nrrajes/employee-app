@@ -2,10 +2,17 @@ pipeline {
 
     agent any
 
+    environment {
+        DOCKERHUB_USERNAME = 'nrrajes'
+        DOCKER_IMAGE = "${DOCKERHUB_USERNAME}/employee-app:${BUILD_NUMBER}"
+    }
+
     stages {
 
         stage('Checkout Code') {
             steps {
+                echo "Checking out source code from GitHub..."
+
                 git branch: 'main',
                     url: 'git@github.com:nrrajes/employee-app.git'
             }
@@ -13,6 +20,8 @@ pipeline {
 
         stage('Build Application') {
             steps {
+                echo "Building Spring Boot application..."
+
                 sh '''
                     chmod +x mvnw
                     ./mvnw clean package
@@ -22,6 +31,8 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
+                echo "Running SonarQube analysis..."
+
                 withSonarQubeEnv('SonarQube') {
                     sh '''
                         /opt/sonar-scanner/bin/sonar-scanner \
@@ -29,7 +40,7 @@ pipeline {
                           -Dsonar.projectName=Employee-App \
                           -Dsonar.sources=src/main \
                           -Dsonar.java.binaries=target/classes \
-			  -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
                     '''
                 }
             }
@@ -37,6 +48,8 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
+                echo "Waiting for SonarQube Quality Gate..."
+
                 timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
@@ -45,27 +58,63 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
+                echo "Building Docker image..."
+
                 sh '''
-                    docker build -t employee-app:${BUILD_NUMBER} .
+                    docker build \
+                        -t employee-app:${BUILD_NUMBER} \
+                        -t ${DOCKER_IMAGE} \
+                        .
                 '''
+
+                sh '''
+                    echo "Docker images created:"
+                    docker images | grep employee-app
+                '''
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                echo "Pushing Docker image to Docker Hub..."
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    sh '''
+                        echo "$DOCKER_PASSWORD" | docker login \
+                            --username "$DOCKER_USERNAME" \
+                            --password-stdin
+
+                        docker push ${DOCKER_IMAGE}
+
+                        docker logout
+                    '''
+                }
             }
         }
 
         stage('Deploy with Docker Compose') {
             steps {
+
                 withCredentials([
                     string(
                         credentialsId: 'mysql-root-password',
                         variable: 'MYSQL_ROOT_PASSWORD'
                     )
                 ]) {
+
                     sh '''
                         export COMPOSE_PROJECT_NAME=employee-app
                         export MYSQL_DATABASE=devopslab
-                        export EMPLOYEE_APP_IMAGE=employee-app:${BUILD_NUMBER}
+                        export EMPLOYEE_APP_IMAGE=${DOCKER_IMAGE}
 
                         echo "Stopping previous deployment..."
-                        docker compose down || true
+                        docker compose down
 
                         echo "Starting new deployment..."
                         docker compose up -d
@@ -85,7 +134,8 @@ pipeline {
                     READY=false
 
                     for i in $(seq 1 30); do
-                        if curl -fs http://localhost:8084/ > /dev/null 2>&1; then
+
+                        if curl -fs http://localhost:8084/ > /dev/null; then
                             echo "Application is ready!"
                             READY=true
                             break
@@ -96,14 +146,13 @@ pipeline {
                     done
 
                     if [ "$READY" != "true" ]; then
-                        echo "ERROR: Application did not become ready within 60 seconds."
-                        echo ""
-                        echo "Application container status:"
-                        docker compose ps
+                        echo "Application failed to become ready."
 
-                        echo ""
                         echo "Application container logs:"
-                        docker logs --tail 100 employee-app
+                        docker logs employee-app --tail 100 || true
+
+                        echo "Docker Compose status:"
+                        docker compose ps
 
                         exit 1
                     fi
@@ -126,11 +175,16 @@ pipeline {
     }
 
     post {
+
+        always {
+            echo "Pipeline execution completed."
+        }
+
         success {
             echo "=========================================="
             echo "PIPELINE COMPLETED SUCCESSFULLY"
             echo "Build Number: ${BUILD_NUMBER}"
-            echo "Docker Image: employee-app:${BUILD_NUMBER}"
+            echo "Docker Image: ${DOCKER_IMAGE}"
             echo "Application: http://localhost:8084"
             echo "=========================================="
         }
@@ -141,10 +195,6 @@ pipeline {
             echo "Build Number: ${BUILD_NUMBER}"
             echo "Check the failed stage and console output."
             echo "=========================================="
-        }
-
-        always {
-            echo "Pipeline execution completed."
         }
     }
 }
