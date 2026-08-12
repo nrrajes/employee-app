@@ -5,6 +5,7 @@ pipeline {
     environment {
         DOCKERHUB_USERNAME = 'nrrajes'
         DOCKER_IMAGE = "${DOCKERHUB_USERNAME}/employee-app:${BUILD_NUMBER}"
+        DOCKER_LATEST = "${DOCKERHUB_USERNAME}/employee-app:latest"
     }
 
     stages {
@@ -58,12 +59,13 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                echo "Building Docker image..."
+                echo "Building Docker images..."
 
                 sh '''
                     docker build \
                         -t employee-app:${BUILD_NUMBER} \
                         -t ${DOCKER_IMAGE} \
+                        -t ${DOCKER_LATEST} \
                         .
                 '''
 
@@ -76,7 +78,7 @@ pipeline {
 
         stage('Push Docker Image') {
             steps {
-                echo "Pushing Docker image to Docker Hub..."
+                echo "Pushing Docker images to Docker Hub..."
 
                 withCredentials([
                     usernamePassword(
@@ -90,7 +92,11 @@ pipeline {
                             --username "$DOCKER_USERNAME" \
                             --password-stdin
 
+                        echo "Pushing versioned image..."
                         docker push ${DOCKER_IMAGE}
+
+                        echo "Pushing latest image..."
+                        docker push ${DOCKER_LATEST}
 
                         docker logout
                     '''
@@ -185,6 +191,7 @@ pipeline {
             echo "PIPELINE COMPLETED SUCCESSFULLY"
             echo "Build Number: ${BUILD_NUMBER}"
             echo "Docker Image: ${DOCKER_IMAGE}"
+            echo "Latest Image: ${DOCKER_LATEST}"
             echo "Application: http://localhost:8084"
             echo "=========================================="
         }
