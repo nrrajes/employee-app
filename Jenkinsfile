@@ -176,8 +176,6 @@ pipeline {
 
                 script {
 
-                    def smokeTestPassed = false
-
                     try {
 
                         sh '''
@@ -222,7 +220,10 @@ pipeline {
                             echo "Smoke tests passed successfully!"
                         '''
 
-                        smokeTestPassed = true
+                        echo "=========================================="
+                        echo "NEW DEPLOYMENT VERIFIED"
+                        echo "=========================================="
+                        echo "Image ${env.DOCKER_IMAGE} passed smoke tests."
 
                     } catch (Exception e) {
 
@@ -242,13 +243,26 @@ pipeline {
                             docker compose ps || true
                         '''
 
-                        echo "Starting automatic rollback..."
+                        /*
+                         * IMPORTANT:
+                         * Rollback logic is inside script{}.
+                         * This avoids the previous:
+                         * "Expected a step" Jenkins compilation error.
+                         */
 
                         if (!env.PREVIOUS_IMAGE?.trim()) {
-                            error("Previous image is not available. Automatic rollback cannot continue.")
+                            error(
+                                "Previous image is not available. " +
+                                "Automatic rollback cannot continue."
+                            )
                         }
 
-                        echo "Rolling back to: ${env.PREVIOUS_IMAGE}"
+                        echo "=========================================="
+                        echo "STARTING AUTOMATIC ROLLBACK"
+                        echo "=========================================="
+
+                        echo "Previous image: ${env.PREVIOUS_IMAGE}"
+                        echo "Failed image: ${env.DOCKER_IMAGE}"
 
                         withCredentials([
                             string(
@@ -263,14 +277,18 @@ pipeline {
                                 export EMPLOYEE_APP_IMAGE=${PREVIOUS_IMAGE}
 
                                 echo "=========================================="
-                                echo "ROLLBACK DEPLOYMENT"
+                                echo "PREPARING ROLLBACK IMAGE"
                                 echo "=========================================="
 
-                                echo "Restoring image:"
+                                echo "Pulling previous image from Docker Hub:"
                                 echo "${EMPLOYEE_APP_IMAGE}"
 
+                                docker pull "${EMPLOYEE_APP_IMAGE}"
+
+                                echo "Stopping failed deployment..."
                                 docker compose down
 
+                                echo "Starting previous deployment..."
                                 docker compose up -d
 
                                 echo "Rollback container status:"
@@ -278,9 +296,13 @@ pipeline {
                             '''
                         }
 
-                        echo "Waiting for rolled-back application..."
+                        echo "=========================================="
+                        echo "VERIFYING ROLLBACK"
+                        echo "=========================================="
 
                         sh '''
+                            echo "Waiting for rolled-back application..."
+
                             READY=false
 
                             for i in $(seq 1 30); do
@@ -299,28 +321,54 @@ pipeline {
                                 echo "CRITICAL: Rollback application failed to become ready."
                                 exit 1
                             fi
-                        '''
 
-                        echo "Testing rolled-back application..."
+                            echo ""
+                            echo "Testing rolled-back root endpoint..."
 
-                        sh '''
-                            echo "Testing root endpoint..."
                             curl -f http://localhost:8084/
 
                             echo ""
-                            echo "Testing employees API..."
+                            echo ""
+                            echo "Testing rolled-back employees API..."
+
                             curl -f http://localhost:8084/employees
 
                             echo ""
-                            echo "Rollback smoke test passed!"
+                            echo ""
+                            echo "Rollback smoke test passed successfully!"
+                        '''
+
+                        echo "=========================================="
+                        echo "VERIFYING DEPLOYED IMAGE"
+                        echo "=========================================="
+
+                        sh '''
+                            DEPLOYED_IMAGE=$(docker inspect employee-app \
+                                --format '{{.Config.Image}}')
+
+                            echo "Currently deployed image:"
+                            echo "${DEPLOYED_IMAGE}"
+
+                            if [ "${DEPLOYED_IMAGE}" != "${PREVIOUS_IMAGE}" ]; then
+                                echo "CRITICAL: Rollback image verification failed."
+                                echo "Expected: ${PREVIOUS_IMAGE}"
+                                echo "Actual:   ${DEPLOYED_IMAGE}"
+                                exit 1
+                            fi
+
+                            echo "Rollback image verification successful!"
                         '''
 
                         echo "=========================================="
                         echo "AUTOMATIC ROLLBACK COMPLETED"
                         echo "=========================================="
+
                         echo "Restored image: ${env.PREVIOUS_IMAGE}"
 
-                        error("Deployment failed. Automatic rollback completed successfully.")
+                        error(
+                            "Deployment failed smoke testing. " +
+                            "Automatic rollback completed successfully."
+                        )
                     }
                 }
             }
@@ -339,15 +387,18 @@ pipeline {
             echo "=========================================="
             echo "PIPELINE COMPLETED SUCCESSFULLY"
             echo "=========================================="
+
             echo "Build Number: ${BUILD_NUMBER}"
             echo "Docker Image: ${DOCKER_IMAGE}"
             echo "Latest Image: ${DOCKER_LATEST}"
             echo "Application: http://localhost:8084"
+
             echo "=========================================="
         }
 
         failure {
             script {
+
                 echo "=========================================="
                 echo "PIPELINE FAILED"
                 echo "=========================================="
@@ -359,7 +410,9 @@ pipeline {
                 }
 
                 echo "New Image: ${DOCKER_IMAGE}"
+
                 echo "Check the failed stage and console output."
+
                 echo "=========================================="
             }
         }
