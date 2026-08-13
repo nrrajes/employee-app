@@ -347,19 +347,21 @@ pipeline {
         }
 
         failure {
-            echo "=========================================="
-            echo "PIPELINE FAILED"
-            echo "=========================================="
+            script {
+                echo "=========================================="
+                echo "PIPELINE FAILED"
+                echo "=========================================="
 
-            echo "Build Number: ${BUILD_NUMBER}"
+                echo "Build Number: ${BUILD_NUMBER}"
 
-            if (env.PREVIOUS_IMAGE?.trim()) {
-                echo "Previous Image: ${env.PREVIOUS_IMAGE}"
+                if (env.PREVIOUS_IMAGE?.trim()) {
+                    echo "Previous Image: ${env.PREVIOUS_IMAGE}"
+                }
+
+                echo "New Image: ${DOCKER_IMAGE}"
+                echo "Check the failed stage and console output."
+                echo "=========================================="
             }
-
-            echo "New Image: ${DOCKER_IMAGE}"
-            echo "Check the failed stage and console output."
-            echo "=========================================="
         }
     }
 }
