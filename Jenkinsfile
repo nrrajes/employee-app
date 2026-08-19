@@ -57,6 +57,32 @@ pipeline {
             }
         }
 
+        stage('Deploy Artifact to Nexus') {
+            steps {
+                echo "Deploying Maven artifact to Nexus..."
+
+                sh '''
+                    echo "=========================================="
+                    echo "DEPLOYING ARTIFACT TO NEXUS"
+                    echo "=========================================="
+
+                    echo "Application version:"
+                    grep -n "<version>" pom.xml | head -5
+
+                    echo "Maven settings location:"
+                    ls -l "$HOME/.m2/settings.xml"
+
+                    echo "Running Maven deploy..."
+
+                    ./mvnw deploy -DskipTests
+
+                    echo "=========================================="
+                    echo "NEXUS DEPLOYMENT COMPLETED"
+                    echo "=========================================="
+                '''
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 echo "Building Docker images..."
@@ -223,6 +249,7 @@ pipeline {
                         echo "=========================================="
                         echo "NEW DEPLOYMENT VERIFIED"
                         echo "=========================================="
+
                         echo "Image ${env.DOCKER_IMAGE} passed smoke tests."
 
                     } catch (Exception e) {
@@ -234,17 +261,20 @@ pipeline {
                         echo "New deployment failed smoke testing."
 
                         echo "Application container logs:"
+
                         sh '''
                             docker logs employee-app --tail 100 || true
                         '''
 
                         echo "Docker Compose status:"
+
                         sh '''
                             docker compose ps || true
                         '''
 
                         /*
                          * IMPORTANT:
+                         *
                          * Rollback logic is inside script{}.
                          * This avoids the previous:
                          * "Expected a step" Jenkins compilation error.
@@ -392,6 +422,9 @@ pipeline {
             echo "Docker Image: ${DOCKER_IMAGE}"
             echo "Latest Image: ${DOCKER_LATEST}"
             echo "Application: http://localhost:8084"
+
+            echo "Nexus Artifact: employee-app:0.0.1-SNAPSHOT"
+            echo "Nexus Repository: maven-snapshots"
 
             echo "=========================================="
         }
